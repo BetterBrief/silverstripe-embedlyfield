@@ -18,27 +18,31 @@ class EmbedlyField extends FormField {
 	protected
 		$sourceField,	// Local ref to FormField
 		$urlField,		// Local ref to FormField
-		$owner,			// Owning dataobject
 		$urlName,		// Name of source field
 		$sourceName;	// Name of code field
 
 	/**
 	 * __construct
+	 * @param DataObject	$model			The model to retrieve from
 	 * @param string		$urlName		Name of the source URL field
 	 * @param string		$sourceName		Name of the HTML source field
-	 * @param DataObject	$owner			DataObject with which to link
 	 * @param string		$title			Title for field (not explicitly used)
 	 * @param Form			$form			Form object
 	 */
-	function __construct($urlName, $sourceName, DataObject $owner, $title = null, $form = null) {
+	function __construct($model, $urlName, $sourceName, $title = null, $form = null) {
 		$this->urlName = $urlName;
 		$this->sourceName = $sourceName;
-		$name = 'Composite_' . $urlName;
-		$this->urlField = new TextField($name.'[_URL]', 'Source URL', $owner->$urlName, $form);
-		$this->sourceField = new TextareaField($name.'[_Source]', 'Embed Code', null, null, $owner->$sourceName, $form);
+		$name = $urlName;
+		if(!$title) {
+			$title = $urlName;
+		}
+		$this->urlField = new TextField($name.'[_URL]', 'Source URL');
+		$this->urlField->setValue($model->$urlName);
+
+		$this->sourceField = new TextareaField($name.'[_Source]', 'Embed Code');
+		$this->sourceField->setValue($model->$sourceName);
 		$this->sourceField->setDisabled(true);
-		$this->owner = $owner;
-		$this->children = new FieldSet(array($this->urlField, $this->sourceField));
+		$this->children = new FieldSet($this->urlField, $this->sourceField);
 		return parent::__construct($name, $title, null, $form);
 	}
 
@@ -86,6 +90,7 @@ class EmbedlyField extends FormField {
 
 		try {
 			$html = self::retrieve_embed($submittedURL);
+			$this->setValue(array('_URL' => $submittedURL, '_Source' => $html));
 			$record->setCastedField($this->sourceName, $html);
 		}
 		catch(SS_HTTPResponse_Exception $e) {
@@ -103,7 +108,12 @@ class EmbedlyField extends FormField {
 	function setValue($value) {
 		if(is_array($value)) {
 			$this->urlField->setValue($value['_URL']);
-			$this->sourceField->setValue($value['_Source']);
+			if(isset($value['_Source'])) {
+				$this->sourceField->setValue($value['_Source']);
+			}
+		}
+		else {
+			$this->urlField->setValue($value);
 		}
 	}
 
