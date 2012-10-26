@@ -20,7 +20,9 @@ class EmbedlyField extends FormField {
 		$urlField,		// Local ref to FormField
 		$urlName,		// Name of source field
 		$sourceName,	// Name of code field
-		$embedWidth;	// Embed width
+		$embedWidth,	// Embed width
+		$thumbnailField,// Thumbnail field to save in to
+		$thumbnailValue;// Thumbnail image value
 
 	/**
 	 * __construct
@@ -57,16 +59,16 @@ class EmbedlyField extends FormField {
 	}
 
 	/**
-	 * retrieve_embed
+	 * retrieveEmbed
 	 * @param string $url The source URL
 	 * @throws SS_HTTPResponse_Exception If there is an error with the API call
 	 * @return string The response HTML source for the embed
 	 */
-	protected static function retrieve_embed($url, $width) {
+	protected function retrieveEmbed($url) {
 
 		$settings = array(
 			'url' => $url,
-			'maxwidth' => $width
+			'maxwidth' => $this->getEmbedWidth(),
 		);
 
 		// API key is optional - only required if you expect > 10k requests
@@ -86,6 +88,10 @@ class EmbedlyField extends FormField {
 			throw new SS_HTTPResponse_Exception('Failed to retrieve embed code - invalid JSON? Response: ' . var_export($responseJSON, 1), 500);
 		}
 
+		if($this->getThumbnailField()) {
+			$this->thumbnailValue = $response['thumbnail_url'];
+		}
+
 		return $response['html'];
 	}
 
@@ -95,6 +101,14 @@ class EmbedlyField extends FormField {
 
 	function getEmbedWidth() {
 		return $this->embedWidth ? $this->embedWidth : self::$embed_max_width;
+	}
+
+	function setThumbnailField($field) {
+		$this->thumbnailField = $field;
+	}
+
+	function getThumbnailField() {
+		return $this->thumbnailField;
 	}
 
 	/**
@@ -107,9 +121,12 @@ class EmbedlyField extends FormField {
 		$record->setCastedField($this->urlName, $submittedURL);
 
 		try {
-			$html = self::retrieve_embed($submittedURL, $this->getEmbedWidth());
+			$html = $this->retrieveEmbed($submittedURL);
 			$this->setValue(array('_URL' => $submittedURL, '_Source' => $html));
 			$record->setCastedField($this->sourceName, $html);
+			if($this->getThumbnailField()) {
+				$record->setCastedField($this->getThumbnailField(), $this->thumbnailValue);
+			}
 		}
 		catch(SS_HTTPResponse_Exception $e) {
 			// If there was an error retrieving embed, update the source...
