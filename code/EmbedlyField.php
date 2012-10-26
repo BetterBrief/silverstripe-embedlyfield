@@ -19,7 +19,8 @@ class EmbedlyField extends FormField {
 		$sourceField,	// Local ref to FormField
 		$urlField,		// Local ref to FormField
 		$urlName,		// Name of source field
-		$sourceName;	// Name of code field
+		$sourceName,	// Name of code field
+		$embedWidth;	// Embed width
 
 	/**
 	 * __construct
@@ -27,9 +28,10 @@ class EmbedlyField extends FormField {
 	 * @param string		$urlName		Name of the source URL field
 	 * @param string		$sourceName		Name of the HTML source field
 	 * @param string		$title			Title for field (not explicitly used)
+	 * @param array			$options		An associative array of options
 	 * @param Form			$form			Form object
 	 */
-	function __construct($model, $urlName, $sourceName, $title = null, $form = null) {
+	function __construct($model, $urlName, $sourceName, $title = null, array $options = array(), $form = null) {
 		$this->urlName = $urlName;
 		$this->sourceName = $sourceName;
 		$name = $urlName;
@@ -43,6 +45,14 @@ class EmbedlyField extends FormField {
 		$this->sourceField->setValue($model->$sourceName);
 		$this->sourceField->setDisabled(true);
 		$this->children = new FieldSet($this->urlField, $this->sourceField);
+
+		foreach($options as $option => $value) {
+			$value = ucfirst($value);
+			if(method_exists($this, 'set' . $option)) {
+				$this->{'set' . $option}($value);
+			}
+		}
+
 		return parent::__construct($name, $title, null, $form);
 	}
 
@@ -52,11 +62,11 @@ class EmbedlyField extends FormField {
 	 * @throws SS_HTTPResponse_Exception If there is an error with the API call
 	 * @return string The response HTML source for the embed
 	 */
-	protected static function retrieve_embed($url) {
+	protected static function retrieve_embed($url, $width) {
 
 		$settings = array(
 			'url' => $url,
-			'maxwidth' => self::$embed_max_width
+			'maxwidth' => $width
 		);
 
 		// API key is optional - only required if you expect > 10k requests
@@ -79,6 +89,14 @@ class EmbedlyField extends FormField {
 		return $response['html'];
 	}
 
+	function setEmbedWidth($width) {
+		$this->embedWidth = (int) $width;
+	}
+
+	function getEmbedWidth() {
+		return $this->embedWidth ? $this->embedWidth : self::$embed_max_width;
+	}
+
 	/**
 	 * saveInto
 	 * Sets the corresponding fields on the $record to their values
@@ -89,7 +107,7 @@ class EmbedlyField extends FormField {
 		$record->setCastedField($this->urlName, $submittedURL);
 
 		try {
-			$html = self::retrieve_embed($submittedURL);
+			$html = self::retrieve_embed($submittedURL, $this->getEmbedWidth());
 			$this->setValue(array('_URL' => $submittedURL, '_Source' => $html));
 			$record->setCastedField($this->sourceName, $html);
 		}
