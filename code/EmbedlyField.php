@@ -22,7 +22,8 @@ class EmbedlyField extends FormField {
 		$sourceName,	// Name of code field
 		$embedWidth,	// Embed width
 		$thumbnailField,// Thumbnail field to save in to
-		$thumbnailValue;// Thumbnail image value
+		$thumbnailValue,// Thumbnail image value
+		$apiArgs;		// Additional arguments for the oembed call
 
 	/**
 	 * __construct
@@ -49,7 +50,7 @@ class EmbedlyField extends FormField {
 		$this->children = new FieldSet($this->urlField, $this->sourceField);
 
 		foreach($options as $option => $value) {
-			$value = ucfirst($value);
+			$option = ucfirst($option);
 			if(method_exists($this, 'set' . $option)) {
 				$this->{'set' . $option}($value);
 			}
@@ -64,12 +65,17 @@ class EmbedlyField extends FormField {
 	 * @throws SS_HTTPResponse_Exception If there is an error with the API call
 	 * @return string The response HTML source for the embed
 	 */
-	protected function retrieveEmbed($url) {
+	protected function retrieveEmbed($url, $params = array()) {
 
 		$settings = array(
 			'url' => $url,
 			'maxwidth' => $this->getEmbedWidth(),
 		);
+
+		$args = $this->getApiArgs();
+		if(!empty($args)) {
+			$settings = array_merge($settings, $args);
+		}
 
 		// API key is optional - only required if you expect > 10k requests
 		if(!empty(self::$api_key)) {
@@ -109,6 +115,14 @@ class EmbedlyField extends FormField {
 
 	function getThumbnailField() {
 		return $this->thumbnailField;
+	}
+
+	function setApiArgs(array $args) {
+		$this->apiArgs = $args;
+	}
+
+	function getApiArgs() {
+		return (array) $this->apiArgs;
 	}
 
 	/**
